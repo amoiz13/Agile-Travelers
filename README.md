@@ -1,6 +1,5 @@
 # Agile-Travelers-
 A multi-modal Swedish Public Transit Planner app.
-# Swedish Public Transit Planner App
 
 ## Overview
 This repository contains the codebase for our Swedish Public Transit Planner App, developed as part of "Course Software development and agile learning ". The primary goal is to produce a reliable application that allows the group members to practice Agile techniques over three sprints, providing real-world experience for our individual academic reports[cite: 2].
