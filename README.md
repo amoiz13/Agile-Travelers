@@ -1,18 +1,47 @@
-# Agile-Travelers-
-A multi-modal Swedish Public Transit Planner app.
+# Agile Travellers
 
-## Overview
-This repository contains the codebase for our Swedish Public Transit Planner App, developed as part of "Course Software development and agile learning ". The primary goal is to produce a reliable application that allows the group members to practice Agile techniques over three sprints, providing real-world experience for our individual academic reports[cite: 2].
+Agile Travellers is a Flutter Android prototype for planning Swedish public
+transport journeys with the Trafiklab ResRobot API.
 
-The application utilizes the Trafiklab ResRobot API to fetch real-world transport routes, timings, and operators[cite: 2]. Because open APIs do not provide live ticket prices or CO2 data, our team is implementing a custom CO2 calculator to estimate emissions per leg of the journey, alongside a trip cost estimator based on regional rules[cite: 2].
+## Prototype features
 
-## Team Roles
-* **Znana Prasanna Peddinti (Scrum Master / Product Owner):** Facilitates daily scrums, tracks team velocity, and manages the sprint burndown chart[cite: 2].
-* **Federico Di Stefano (API Documentation Lead):** Writes OpenAPI/Swagger specifications and manages test collections[cite: 2].
-* **Abdul Moiz Javaid (Frontend Developer):** Develops the mobile frontend, search interfaces, and UI result cards[cite: 2].
-* **Lokeshraja Balaji (Backend Developer):** Builds the REST API and integrates the Trafiklab ResRobot endpoints[cite: 2].
-* **Gabriele Passini (Algorithm & Data Developer):** Implements the custom math engines for travel cost and CO2 emissions[cite: 2].
+- Station-name autocomplete using ResRobot
+- Journey search for Swedish public transport
+- Journey leg details for trains, buses, and walking
+- CO2 estimates per leg and per journey
+- Sorting by departure time, journey duration, transfers, or CO2
+- Android splash screen and Agile Travellers branding
 
-## Sprint 1 MVP Features
-* **Location Search:** Origin and destination input fields that fetch valid ResRobot station IDs[cite: 1].
-* **Route Display:** Chronological breakdown of journey legs, including transport modes, transfer counts, and exact travel times[cite: 1].
+## Setup
+
+1. Install Flutter and Android Studio.
+2. Copy `.env.example` to `.env`.
+3. Add a Trafiklab ResRobot API key:
+
+   ```env
+   RESROBOT_API_KEY=your_key_here
+   ```
+
+4. Run:
+
+   ```powershell
+   flutter pub get
+   flutter run
+   ```
+
+The `.env` file is ignored by Git and must never be committed.
+
+## Build the Android prototype
+
+```powershell
+flutter build apk --release --build-name 0.1.0 --build-number 1
+```
+
+The generated APK is written to
+`build/app/outputs/flutter-apk/app-release.apk`.
+
+## Versioning
+
+The current release is `0.1.0+1`, an initial prototype build. The `0.1.0`
+tag and GitHub release identify this milestone; later features should use a
+new semantic version and Android build number.
