@@ -45,3 +45,7 @@ The generated APK is written to
 The current release is `0.1.0+1`, an initial prototype build. The `0.1.0`
 tag and GitHub release identify this milestone; later features should use a
 new semantic version and Android build number.
+
+## APK download
+
+Download the prototype APK from [agile-travellers-v0.1.0.apk](./releases/agile-travellers-v0.1.0.apk). Install it on an Android device with Android 6.0/API 23 or newer.
