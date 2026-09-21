@@ -1,0 +1,750 @@
+openapi: 3.0.0
+info:
+  title: Trafiklab ResRobot API used in Agile Travelers
+  description: >
+    Interactive API documentation for Trafiklab ResRobot v2.1 endpoints
+    used in the Agile Travelers application (Stop Lookup and Route Planner).
+  version: 2.1.0
+servers:
+  - url: https://api.resrobot.se/v2.1
+    description: ResRobot Production Server
+
+paths:
+  /location.name:
+    get:
+      summary: Search for stations or locations
+      description: Returns a list of stops or coordinates matching the given search string.
+      parameters:
+        - name: accessId
+          in: query
+          required: true
+          description: Your API Key
+          schema:
+            type: string
+            example: "00000000-0000-0000-0000-000000000000"
+        - name: input
+          in: query
+          required: true
+          description: The search string. Append a question mark for fuzzy search.
+          schema:
+            type: string
+            example: "Göteborg"
+        - name: maxNo
+          in: query
+          required: false
+          description: The maximum number of results to return, default 10, maximum 1000.
+          schema:
+            type: integer
+            default: 10
+            example: 10
+        - name: lang
+          in: query
+          required: false
+          description: Language (sv/en/de), default sv. Affects both data (names for different transport types) and error messages.
+          schema:
+            type: string
+            enum: [sv, en, de]
+            default: sv
+            example: "sv"
+        - name: format
+          in: query
+          required: false
+          description: The response format, json or xml.
+          schema:
+            type: string
+            enum: [json, xml]
+            default: json
+            example: "json"
+      responses:
+        '200':
+          description: Successful stop lookup response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationResponse'
+        '401':
+          description: Unauthorized (Invalid or missing API key)
+        '500':
+          description: Internal Server Error
+
+  /trip:
+    get:
+      summary: Route planner (Trip search)
+      description: Returns journey routes, transfers, modes of transport, and timetable details between an origin and destination.
+      parameters:
+        - name: accessId
+          in: query
+          required: true
+          description: Your API key.
+          schema:
+            type: string
+            example: "00000000-0000-0000-0000-000000000000"
+        - name: originId
+          in: query
+          required: false
+          description: Stop id to search a route from (retrieved from Stop lookup API). Either originId or originCoordLat+originCoordLong is required.
+          schema:
+            type: string
+            example: "740000001"
+        - name: originCoordLat
+          in: query
+          required: false
+          description: Origin latitude (WGS84, decimal degree). Required if originId is omitted.
+          schema:
+            type: number
+            example: 59.330136
+        - name: originCoordLong
+          in: query
+          required: false
+          description: Origin longitude (WGS84, decimal degree). Required if originId is omitted.
+          schema:
+            type: number
+            example: 18.058151
+        - name: destId
+          in: query
+          required: false
+          description: Stop id to search a route to. Either destId or destCoordLat+destCoordLong is required.
+          schema:
+            type: string
+            example: "740098001"
+        - name: destCoordLat
+          in: query
+          required: false
+          description: Destination latitude (WGS84, decimal degree). Required if destId is omitted.
+          schema:
+            type: number
+            example: 57.708895
+        - name: destCoordLong
+          in: query
+          required: false
+          description: Destination longitude (WGS84, decimal degree). Required if destId is omitted.
+          schema:
+            type: number
+            example: 11.973479
+        - name: date
+          in: query
+          required: false
+          description: Search on a specific date in YYYY-MM-DD format (default today).
+          schema:
+            type: string
+            format: date
+            example: "2026-09-21"
+        - name: time
+          in: query
+          required: false
+          description: Search on a specific time in HH:MM format (default now).
+          schema:
+            type: string
+            example: "12:00"
+        - name: searchForArrival
+          in: query
+          required: false
+          description: Set to 1 to search for latest arrival date/time instead of first departure (0 = departure, 1 = arrival).
+          schema:
+            type: integer
+            enum: [0, 1]
+            default: 0
+            example: 0
+        - name: viaId
+          in: query
+          required: false
+          description: Id of an additional stop that should be passed on the way.
+          schema:
+            type: string
+            example: "740016365"
+        - name: avoidId
+          in: query
+          required: false
+          description: Id of a stop that should be avoided for transfers.
+          schema:
+            type: string
+            example: "740000004"
+        - name: numF
+          in: query
+          required: false
+          description: Number of results to fetch departing after specified date/time (1-6, default 5).
+          schema:
+            type: integer
+            default: 5
+            example: 5
+        - name: numB
+          in: query
+          required: false
+          description: Number of results to fetch departing before specified date/time (0-5, default 0).
+          schema:
+            type: integer
+            default: 0
+            example: 0
+        - name: maxChange
+          in: query
+          required: false
+          description: Limits the maximum number of transfers (1-3, default unlimited).
+          schema:
+            type: integer
+        - name: products
+          in: query
+          required: false
+          description: Bitmask integer to filter transport products (train, bus, ferry, etc.).
+          schema:
+            type: integer
+        - name: operators
+          in: query
+          required: false
+          description: Comma-separated operator IDs to include or exclude (prefix with ! to exclude).
+          schema:
+            type: string
+        - name: passlist
+          in: query
+          required: false
+          description: Set to 1 to include passed intermediate stops on the route, 0 to omit.
+          schema:
+            type: integer
+            enum: [0, 1]
+            default: 0
+            example: 0
+        - name: originWalk
+          in: query
+          required: false
+          description: Walking settings to first stop (allow,minDist,maxDist,walkSpeedPct).
+          schema:
+            type: string
+        - name: destWalk
+          in: query
+          required: false
+          description: Walking settings from last stop to destination (allow,minDist,maxDist,walkSpeedPct).
+          schema:
+            type: string
+        - name: context
+          in: query
+          required: false
+          description: Pagination context reference for scrolling up/down from prior search results.
+          schema:
+            type: string
+        - name: lang
+          in: query
+          required: false
+          description: Language (sv/en/de), default sv.
+          schema:
+            type: string
+            enum: [sv, en, de]
+            default: sv
+            example: "sv"
+        - name: format
+          in: query
+          required: false
+          description: The response format, json or xml.
+          schema:
+            type: string
+            enum: [json, xml]
+            default: json
+            example: "json"
+      responses:
+        '200':
+          description: Successful route search response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripResponse'
+        '401':
+          description: Unauthorized (Invalid or missing API key)
+        '500':
+          description: Internal Server Error
+
+components:
+  schemas:
+    LocationResponse:
+      type: object
+      description: Response object for Stop Lookup (/location.name)
+      properties:
+        StopLocation:
+          type: array
+          description: List of matched stop locations
+          items:
+            $ref: '#/components/schemas/StopLocation'
+      example:
+        StopLocation:
+          - id: "740098001"
+            extId: "740098001"
+            name: "GÖTEBORG"
+            lon: 11.973479
+            lat: 57.708895
+            weight: 22332
+            products: 254
+
+    StopLocation:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Internal stop id
+          example: "740098001"
+        extId:
+          type: string
+          description: External station ID (used for route planning)
+          example: "740098001"
+        name:
+          type: string
+          description: Stop or station name
+          example: "GÖTEBORG"
+        lon:
+          type: number
+          format: double
+          description: Longitude in decimal degrees (WGS84)
+          example: 11.973479
+        lat:
+          type: number
+          format: double
+          description: Latitude in decimal degrees (WGS84)
+          example: 57.708895
+        weight:
+          type: integer
+          description: Relevance/importance weight of the station
+          example: 22332
+        products:
+          type: integer
+          description: Bitmask representing available transport modes
+          example: 254
+
+    TripResponse:
+      type: object
+      description: Response object for Route Planning (/trip)
+      properties:
+        TripList:
+          type: object
+          properties:
+            scrF:
+              type: string
+              description: Context scroll token for later journeys
+              example: "scrF_token_example"
+            scrB:
+              type: string
+              description: Context scroll token for earlier journeys
+              example: "scrB_token_example"
+            Trip:
+              type: array
+              description: List of recommended trip options
+              items:
+                $ref: '#/components/schemas/Trip'
+      example:
+        {
+          "Trip": [
+            {
+              "Origin": {
+                "name": "Stockholm Centralstation",
+                "type": "ST",
+                "id": "A=1@O=Stockholm Centralstation@X=18058151@Y=59330136@U=1@L=740000001@",
+                "extId": "740000001",
+                "lon": 18.058151,
+                "lat": 59.330136,
+                "routeIdx": 0,
+                "prognosisType": "PROGNOSED",
+                "time": "12:17:00",
+                "date": "2026-09-21",
+                "minimumChangeDuration": "PT20M"
+              },
+              "Destination": {
+                "name": "Göteborg Drottningtorget",
+                "type": "ST",
+                "id": "A=1@O=Göteborg Drottningtorget@X=11973740@Y=57707898@U=1@L=740030117@",
+                "extId": "740030117",
+                "lon": 11.97374,
+                "lat": 57.707898,
+                "routeIdx": 5,
+                "prognosisType": "PROGNOSED",
+                "time": "16:54:00",
+                "date": "2026-09-21",
+                "minimumChangeDuration": "PT5M"
+              },
+              "Notes": {
+                "Note": [
+                  {
+                    "value": "For public transit routes: only stops can be taken into account as vias.",
+                    "key": "text.connection.addressViaMessage",
+                    "type": "H",
+                    "txtN": "For public transit routes: only stops can be taken into account as vias."
+                  }
+                ]
+              },
+              "LegList": {
+                "Leg": [
+                  {
+                    "Origin": {
+                      "name": "Stockholm Centralstation",
+                      "type": "ST",
+                      "id": "A=1@O=Stockholm Centralstation@X=18058151@Y=59330136@U=1@L=740000001@",
+                      "extId": "740000001",
+                      "lon": 18.058151,
+                      "lat": 59.330136,
+                      "routeIdx": 0,
+                      "prognosisType": "PROGNOSED",
+                      "time": "12:17:00",
+                      "date": "2026-09-21",
+                      "minimumChangeDuration": "PT20M"
+                    },
+                    "Destination": {
+                      "name": "Göteborg Centralstation",
+                      "type": "ST",
+                      "id": "A=1@O=Göteborg Centralstation@X=11973479@Y=57708895@U=1@L=740000002@",
+                      "extId": "740000002",
+                      "lon": 11.973479,
+                      "lat": 57.708895,
+                      "routeIdx": 3,
+                      "prognosisType": "PROGNOSED",
+                      "time": "15:47:00",
+                      "date": "2026-09-21",
+                      "minimumChangeDuration": "PT15M"
+                    },
+                    "Notes": {
+                      "Note": [
+                        {
+                          "value": "Mat 1 klass",
+                          "key": "A1",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "Mat 1 klass"
+                        },
+                        {
+                          "value": "Bistrovagn",
+                          "key": "AD",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "Bistrovagn"
+                        },
+                        {
+                          "value": "Obligatorisk platsbokning",
+                          "key": "AF",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "Obligatorisk platsbokning"
+                        },
+                        {
+                          "value": "WiFi",
+                          "key": "AW",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "WiFi"
+                        },
+                        {
+                          "value": "2 klass lugn",
+                          "key": "BL",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "2 klass lugn"
+                        },
+                        {
+                          "value": "Första och andra klass",
+                          "key": "DB",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "Första och andra klass"
+                        },
+                        {
+                          "value": "EU förordning 2021/782",
+                          "key": "EJ",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "EU förordning 2021/782"
+                        },
+                        {
+                          "value": "Rullstolsplats, reservation krävs,assistans behövs",
+                          "key": "PB",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "Rullstolsplats, reservation krävs,assistans behövs"
+                        },
+                        {
+                          "value": "Maträtt",
+                          "key": "SM",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "Maträtt"
+                        },
+                        {
+                          "value": "1 klass med extra komfort",
+                          "key": "SU",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "1 klass med extra komfort"
+                        },
+                        {
+                          "value": "Kaffebuffé 1 klass",
+                          "key": "SZ",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "Kaffebuffé 1 klass"
+                        },
+                        {
+                          "value": "X2000",
+                          "key": "VX",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "X2000"
+                        },
+                        {
+                          "value": "X2000",
+                          "key": "XE",
+                          "type": "A",
+                          "priority": 0,
+                          "routeIdxFrom": 0,
+                          "routeIdxTo": 3,
+                          "txtN": "X2000"
+                        }
+                      ]
+                    },
+                    "JourneyDetailRef": {
+                      "ref": "1|2043|0|1|21092026"
+                    },
+                    "JourneyStatus": "P",
+                    "Product": [
+                      {
+                        "icon": {
+                          "res": "prod_gen"
+                        },
+                        "operatorInfo": {
+                          "name": "SJ",
+                          "nameS": "74",
+                          "nameN": "74",
+                          "nameL": "SJ",
+                          "id": "74"
+                        },
+                        "name": "Snabbtåg tåg 433",
+                        "internalName": "Snabbtåg tåg 433",
+                        "displayNumber": "433",
+                        "num": "433",
+                        "line": "433",
+                        "lineId": "740000000433000001-433",
+                        "catOut": "JST",
+                        "catIn": "JST",
+                        "catCode": "1",
+                        "cls": "2",
+                        "catOutS": "JST",
+                        "catOutL": "Snabbtåg tåg",
+                        "operatorCode": "74",
+                        "operator": "SJ",
+                        "admin": "074074",
+                        "matchId": "433;433;433"
+                      },
+                      {
+                        "icon": {
+                          "res": "prod_gen"
+                        },
+                        "operatorInfo": {
+                          "name": "SJ",
+                          "nameS": "74",
+                          "nameN": "74",
+                          "nameL": "SJ",
+                          "id": "74"
+                        },
+                        "name": "Snabbtåg tåg 433",
+                        "internalName": "Snabbtåg tåg 433",
+                        "displayNumber": "433",
+                        "num": "433",
+                        "line": "433",
+                        "lineId": "740000000433000001-433",
+                        "catOut": "JST",
+                        "catIn": "JST",
+                        "catCode": "1",
+                        "cls": "2",
+                        "catOutS": "JST",
+                        "catOutL": "Snabbtåg tåg",
+                        "operatorCode": "74",
+                        "operator": "SJ",
+                        "admin": "074074",
+                        "routeIdxFrom": 0,
+                        "routeIdxTo": 3,
+                        "matchId": "433;433;433"
+                      }
+                    ],
+                    "JourneyDetail": {
+                      "ref": "1|2043|0|1|21092026",
+                      "dayOfOperation": "2026-09-21"
+                    },
+                    "id": "0",
+                    "idx": 0,
+                    "name": "Snabbtåg tåg 433",
+                    "number": "433",
+                    "category": "JST",
+                    "type": "JNY",
+                    "reachable": true,
+                    "waitingState": "UNDEF",
+                    "direction": "Göteborg Centralstation",
+                    "directionFlag": "1",
+                    "duration": "PT3H30M",
+                    "minimumChangeDuration": "PT15M"
+                  }
+                ]
+              },
+              "via": [
+                {
+                  "Notes": {
+                    "Note": [
+                      {
+                        "value": "???",
+                        "key": "VIA_LOCATION",
+                        "type": "H",
+                        "txtN": "???"
+                      }
+                    ]
+                  },
+                  "name": "Sävenäs Lokstation (Göteborg kn)",
+                  "id": "A=1@O=Sävenäs Lokstation (Göteborg kn)@X=12024088@Y=57726433@U=1@L=740016365@",
+                  "extId": "740016365",
+                  "routeIdx": 2,
+                  "lon": 12.024088,
+                  "lat": 57.726433,
+                  "arrPrognosisType": "PROGNOSED",
+                  "arrTime": "16:20:00",
+                  "arrDate": "2026-09-21",
+                  "minimumChangeDuration": "PT5M"
+                }
+              ],
+              "idx": 0,
+              "tripId": "C-0",
+              "ctxRecon": "¶HKI¶T$A=1@O=Stockholm Centralstation@L=740000001@a=128@$A=1@O=Göteborg Centralstation@L=740000002@a=128@$202609211217$202609211547$JST  433$$1$$$$$$§W$A=1@O=Göteborg Centralstation@L=740000002@a=128@$A=1@O=Göteborg Drottningtorget@L=740030117@a=128@$202609211547$202609211602$$$1$$$$$$§T$A=1@O=Göteborg Drottningtorget@L=740030117@a=128@$A=1@O=Gamlestads Torg (Göteborg kn)@L=740025630@a=128@$202609211604$202609211610$SLT   11$$1$$$$$$§T$A=1@O=Gamlestads Torg (Göteborg kn)@L=740025630@a=128@$A=1@O=Sävenäs Lokstation (Göteborg kn)@L=740016365@a=128@$202609211616$202609211620$BLT  167$$1$$$$$$§T$A=1@O=Sävenäs Lokstation (Göteborg kn)@L=740016365@a=128@$A=1@O=Gamlestads Torg (Göteborg kn)@L=740025630@a=128@$202609211634$202609211641$BLT  167$$1$$$$$$§T$A=1@O=Gamlestads Torg (Göteborg kn)@L=740025630@a=128@$A=1@O=Göteborg Drottningtorget@L=740030117@a=128@$202609211648$202609211654$SLT    4$$1$$$$$$¶KC¶#VE#2#CF#100#CA#0#CM#0#SICT#0#AM#81#AM2#0#RT#4#¶KRCC¶#VE#1#",
+              "duration": "PT4H37M",
+              "rtDuration": "PT4H37M",
+              "checksum": "5c718639_3",
+              "transferCount": 4
+            }
+          ],
+          "scrB": "3|OB|MTµ14µ9377µ9377µ9654µ9654µ0µ0µ66461µ9360µ1µ0µ34µ0µ0µ-2147483648µ1µ2|PDHµ2c2d72072b77ee7bf7955d187a947ee9|RDµ21092026|RTµ120000|USµ1|RSµINIT",
+          "scrF": "3|OF|MTµ14µ9922µ9922µ10464µ10464µ0µ0µ5µ9439µ7µ0µ34µ0µ0µ-2147483648µ1µ2|PDHµ2c2d72072b77ee7bf7955d187a947ee9|RDµ21092026|RTµ120000|USµ1|RSµINIT"
+        }
+
+    Trip:
+      type: object
+      properties:
+        duration:
+          type: string
+          description: Total trip duration in ISO 8601 format
+          example: "PT1H30M"
+        transferCount:
+          type: integer
+          description: Number of transfers required
+          example: 0
+        Origin:
+          $ref: '#/components/schemas/TripEndpoint'
+        Destination:
+          $ref: '#/components/schemas/TripEndpoint'
+        LegList:
+          type: object
+          properties:
+            Leg:
+              type: array
+              items:
+                $ref: '#/components/schemas/Leg'
+
+    TripEndpoint:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Stockholm Centralstation"
+        type:
+          type: string
+          example: "ST"
+        id:
+          type: string
+          example: "740000001"
+        extId:
+          type: string
+          example: "740000001"
+        date:
+          type: string
+          example: "2026-09-21"
+        time:
+          type: string
+          example: "12:00:00"
+        lat:
+          type: number
+          example: 59.330136
+        lon:
+          type: number
+          example: 18.058151
+
+    Leg:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "leg-01"
+        name:
+          type: string
+          example: "SJ Snabbtåg 520"
+        type:
+          type: string
+          description: JNY for public transit, WALK for walking, TRSF for transfer
+          example: "JNY"
+        category:
+          type: string
+          description: Transport mode category code (e.g. JST for high-speed train, BLT for local bus)
+          example: "JST"
+        dist:
+          type: integer
+          description: Distance in meters
+          example: 71200
+        duration:
+          type: string
+          example: "PT1H30M"
+        Origin:
+          $ref: '#/components/schemas/TripEndpoint'
+        Destination:
+          $ref: '#/components/schemas/TripEndpoint'
+        Product:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        Notes:
+          type: object
+          properties:
+            Note:
+              type: array
+              items:
+                type: object
+                properties:
+                  value:
+                    type: string
+                    example: "Seat reservation required"
+
+    Product:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "SJ Snabbtåg"
+        operator:
+          type: string
+          example: "SJ"
+        operatorCode:
+          type: string
+          example: "275"
+        line:
+          type: string
+          example: "520"
+        catOut:
+          type: string
+          example: "JST"
