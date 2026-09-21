@@ -1,4 +1,4 @@
-package com.amoiz13.agiletravellers
+package com.amoiz13.agiletravelers
 
 import io.flutter.embedding.android.FlutterActivity
 

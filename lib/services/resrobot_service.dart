@@ -76,11 +76,15 @@ class ResRobotService {
   }
 
   Map<String, dynamic> _decode(String body) {
-    final value = jsonDecode(body);
-    if (value is! Map) {
-      throw const ResRobotException('ResRobot returned an unexpected response.');
+    try {
+      final value = jsonDecode(body);
+      if (value is! Map) {
+        throw const ResRobotException('ResRobot returned an unexpected response.');
+      }
+      return Map<String, dynamic>.from(value);
+    } on FormatException {
+      throw const ResRobotException('ResRobot returned invalid JSON.');
     }
-    return Map<String, dynamic>.from(value);
   }
 
   String _date(DateTime value) =>
