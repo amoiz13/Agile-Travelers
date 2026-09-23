@@ -6,17 +6,30 @@ String calculateTripCO2(Trip trip) {
   return '${(grams / 1000).toStringAsFixed(1)} kg CO2';
 }
 
+double calculateTripDistanceKm(Trip trip) => trip.legs.fold<double>(
+      0,
+      (total, leg) => total + calculateLegDistanceKm(leg),
+    );
+
 double calculateTripCO2Grams(Trip trip) => trip.legs.fold<double>(
       0,
-      (total, leg) => total + (_legKilometers(leg) * _emissionFactor(leg)),
+      (total, leg) =>
+          total + (calculateLegDistanceKm(leg) * _emissionFactor(leg)),
     );
 
 String calculateLegCO2(Leg leg) {
-  final kilograms = (_legKilometers(leg) * _emissionFactor(leg)) / 1000;
+  final kilograms = (calculateLegDistanceKm(leg) * _emissionFactor(leg)) / 1000;
   return '${kilograms.toStringAsFixed(1)} kg CO2';
 }
 
-double _legKilometers(Leg leg) {
+String formatDistance(double kilometers) {
+  if (kilometers < 1) {
+    return '${(kilometers * 1000).round()} m';
+  }
+  return '${kilometers.toStringAsFixed(kilometers < 10 ? 1 : 0)} km';
+}
+
+double calculateLegDistanceKm(Leg leg) {
   final apiDistance = leg.gisRoute?.distanceMeters ?? 0;
   if (apiDistance > 0) {
     return apiDistance / 1000;

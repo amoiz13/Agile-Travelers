@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:agile_travelers/models/resrobot_models.dart';
-import 'package:agile_travelers/utils/co2_calculator.dart';
+import 'package:agile_travellers/models/resrobot_models.dart';
+import 'package:agile_travellers/utils/co2_calculator.dart';
 
 void main() {
   const location = Location(
@@ -36,6 +36,9 @@ void main() {
 
     expect(calculateTripCO2(trip), '0.1 kg CO2');
     expect(calculateLegCO2(leg), '0.1 kg CO2');
+    expect(calculateLegDistanceKm(leg), 10);
+    expect(calculateTripDistanceKm(trip), 10);
+    expect(formatDistance(10), '10 km');
   });
 
   test('parses nested GIS route and product category', () {

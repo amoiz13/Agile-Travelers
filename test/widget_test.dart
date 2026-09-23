@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:agile_travelers/main.dart';
+import 'package:agile_travellers/main.dart';
 
 void main() {
   setUpAll(() {
@@ -15,7 +15,7 @@ void main() {
       const ProviderScope(child: MaterialApp(home: PlannerPage())),
     );
 
-    expect(find.text('Agile Travelers'), findsOneWidget);
+    expect(find.text('Agile Travellers'), findsOneWidget);
     expect(find.text('Search journeys'), findsOneWidget);
     expect(find.text('Your journey options will appear here.'), findsOneWidget);
   });

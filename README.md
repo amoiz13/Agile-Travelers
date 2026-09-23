@@ -1,6 +1,6 @@
-# Agile Travelers
+# Agile Travellers
 
-Agile Travelers is a Flutter Android prototype for planning Swedish public
+Agile Travellers is a Flutter Android prototype for planning Swedish public
 transport journeys with the Trafiklab ResRobot API.
 
 ## Prototype features
@@ -10,7 +10,7 @@ transport journeys with the Trafiklab ResRobot API.
 - Journey leg details for trains, buses, and walking
 - CO2 estimates per leg and per journey
 - Sorting by departure time, journey duration, transfers, or CO2
-- Android splash screen and Agile Travelers branding
+- Android splash screen and Agile Travellers branding
 
 ## Setup
 
