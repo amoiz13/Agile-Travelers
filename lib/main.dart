@@ -25,7 +25,7 @@ class TransitPlannerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'Agile Travellers',
+        title: 'Agile Travelers',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff006b5e)),
           useMaterial3: true,
@@ -66,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               const SizedBox(height: 20),
               Text(
-                'Agile Travellers',
+                'Agile Travelers',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -117,7 +117,7 @@ class _PlannerPageState extends ConsumerState<PlannerPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Agile Travellers')),
+        appBar: AppBar(title: const Text('Agile Travelers')),
         body: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 900),

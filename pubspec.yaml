@@ -1,5 +1,5 @@
-name: agile_travellers
-description: "Agile Travellers Swedish public transit planner prototype."
+name: agile_travelers
+description: "Agile Travelers Swedish public transit planner prototype."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
