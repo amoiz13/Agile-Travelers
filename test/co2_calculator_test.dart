@@ -36,6 +36,9 @@ void main() {
 
     expect(calculateTripCO2(trip), '0.1 kg CO2');
     expect(calculateLegCO2(leg), '0.1 kg CO2');
+    expect(calculateLegDistanceKm(leg), 10);
+    expect(calculateTripDistanceKm(trip), 10);
+    expect(formatDistance(10), '10 km');
   });
 
   test('parses nested GIS route and product category', () {
