@@ -76,7 +76,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
               child: ListTile(
                 title: Text(trip.duration.readableDuration),
                 subtitle: Text(
-                    '${trip.origin.name} → ${trip.destination.name} • ${trip.transferCount} transfers'),
+                    '${trip.origin.name} → ${trip.destination.name}\n'
+                    '${trip.transferCount} transfers • Distance: '
+                    '${formatDistance(calculateTripDistanceKm(trip))}'),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => TripDetailsScreen(trip: trip),
