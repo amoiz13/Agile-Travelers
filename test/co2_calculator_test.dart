@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:agile_travellers/models/resrobot_models.dart';
-import 'package:agile_travellers/utils/co2_calculator.dart';
+import 'package:agile_travelers/models/resrobot_models.dart';
+import 'package:agile_travelers/utils/co2_calculator.dart';
 
 void main() {
   const location = Location(

@@ -30,16 +30,63 @@ class TripDetailsScreen extends StatelessWidget {
             const SizedBox(height: 16),
             for (final leg in trip.legs)
               Card(
-                child: ListTile(
-                  leading: Icon(leg.type == 'WALK'
-                      ? Icons.directions_walk
-                      : Icons.directions_transit),
-                  title: Text(leg.name),
-                  subtitle: Text(
-                    '${leg.origin.time} → ${leg.destination.time}\n'
-                    '${calculateLegCO2(leg)}',
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                  isThreeLine: true,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          leg.type == 'WALK'
+                              ? Icons.directions_walk
+                              : Icons.directions_transit,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              leg.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${leg.origin.name} → ${leg.destination.name}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              '${leg.origin.time} → ${leg.destination.time}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Distance: ${formatDistance(calculateLegDistanceKm(leg))} • '
+                              '${calculateLegCO2(leg)}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
           ],
