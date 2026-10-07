@@ -1,15 +1,21 @@
+import 'dart:convert';
+
 import 'package:agile_travelers/main.dart';
 import 'package:agile_travelers/models/resrobot_models.dart';
 import 'package:agile_travelers/screens/results_screen.dart';
+import 'package:agile_travelers/services/gemini_recommendation_service.dart';
+import 'package:agile_travelers/services/network_unavailable_exception.dart';
 import 'package:agile_travelers/services/resrobot_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 // Fake service to isolate UI tests from network/JSON logic
 class FakeResRobotService implements ResRobotService {
   bool shouldThrowError = false;
+  bool shouldThrowOffline = false;
 
   final _dummyLocation1 = const Location(
     extId: '1',
@@ -42,13 +48,18 @@ class FakeResRobotService implements ResRobotService {
     required String destId,
     DateTime? date,
   }) async {
-    if (shouldThrowError) {
-      throw const ResRobotException('Fake API Error');
+    if (shouldThrowOffline) {
+      throw const NetworkUnavailableException();
     }
-    
+    if (shouldThrowError) {
+      throw const ResRobotException(
+        'We couldn’t load journey information. Please try again.',
+      );
+    }
+
     // Simulate network delay for loading state
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     return TripResponse(
       trips: [
         Trip(
@@ -69,7 +80,7 @@ class FakeResRobotService implements ResRobotService {
               notes: [],
             ),
           ],
-        )
+        ),
       ],
     );
   }
@@ -77,63 +88,127 @@ class FakeResRobotService implements ResRobotService {
   // Not used but needed to fulfill implements contract
   @override
   String get apiKey => '';
-  
+
   @override
   http.Client get client => throw UnimplementedError();
 }
 
 void main() {
+  void useLargeViewport(WidgetTester tester) {
+    tester.view.physicalSize = const Size(900, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+  }
+
   Widget createWidgetUnderTest(ResRobotService fakeService) {
     return ProviderScope(
       overrides: [
         resRobotProvider.overrideWithValue(fakeService),
+        geminiRecommendationProvider.overrideWithValue(
+          GeminiRecommendationService(
+            apiKey: 'test-key',
+            client: MockClient((request) async {
+              expect(request.body, contains('quiet lakeside walk'));
+              return http.Response(
+                jsonEncode({
+                  'candidates': [
+                    {
+                      'content': {
+                        'parts': [
+                          {
+                            'text': jsonEncode({
+                              'relevant': true,
+                              'message': '',
+                              'destinations': [
+                                {
+                                  'destination': 'Uppsala',
+                                  'reason': 'A peaceful lakeside walk.',
+                                },
+                              ],
+                            }),
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                }),
+                200,
+              );
+            }),
+          ),
+        ),
       ],
-      child: const MaterialApp(
-        home: PlannerPage(),
-      ),
+      child: const MaterialApp(home: PlannerPage()),
     );
   }
 
   group('UI Layer Tests (Planner & Results Screen)', () {
-    testWidgets('Shows loading indicator and then results on successful search', (WidgetTester tester) async {
-      final fakeService = FakeResRobotService();
-      await tester.pumpWidget(createWidgetUnderTest(fakeService));
+    testWidgets(
+      'Shows loading indicator and then results on successful search',
+      (WidgetTester tester) async {
+        useLargeViewport(tester);
+        final fakeService = FakeResRobotService();
+        await tester.pumpWidget(createWidgetUnderTest(fakeService));
 
-      // 1. Fill Origin
-      await tester.enterText(find.widgetWithText(TextField, 'Origin'), 'stock');
-      await tester.pumpAndSettle(); // Wait for autocomplete debounce/results
-      await tester.tap(find.text('Stockholm')); // Tap the dropdown item
-      await tester.pumpAndSettle();
+        // 1. Fill Origin
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Origin'),
+          'stock',
+        );
+        await tester.pumpAndSettle(); // Wait for autocomplete debounce/results
+        await tester.tap(find.text('Stockholm')); // Tap the dropdown item
+        await tester.pumpAndSettle();
 
-      // 2. Fill Destination
-      await tester.enterText(find.widgetWithText(TextField, 'Destination'), 'upps');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Uppsala'));
-      await tester.pumpAndSettle();
+        // 2. Fill Destination
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Destination'),
+          'upps',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Uppsala'));
+        await tester.pumpAndSettle();
 
-      // 3. Tap Search
-      await tester.tap(find.text('Search journeys'));
-      
-      // 4. Verify Loading State
-      await tester.pump(); // Start the async gap
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        await tester.enterText(
+          find.byType(TextField).last,
+          'I want a quiet lakeside walk.',
+        );
 
-      // 5. Verify Success State (Wait for delay to finish)
-      await tester.pumpAndSettle(const Duration(seconds: 1));
-      
-      // The loading spinner should be gone
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      
-      // ResultsScreen should be present
-      expect(find.byType(ResultsScreen), findsOneWidget);
-      
-      // The trip duration (1h from PT1H) and cities should be visible
-      expect(find.textContaining('Stockholm'), findsWidgets);
-      expect(find.textContaining('Uppsala'), findsWidgets);
-      expect(find.text('1h'), findsOneWidget); // Assuming PT1H formats to 1h
-    });
+        // 3. Tap Search
+        tester.testTextInput.hide();
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('Find journeys'),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.text('Find journeys'));
 
-    testWidgets('Shows error message on API failure', (WidgetTester tester) async {
+        // 4. Verify Loading State
+        await tester.pump(); // Start the async gap
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+        // 5. Verify Success State (Wait for delay to finish)
+        await tester.pumpAndSettle(const Duration(seconds: 1));
+
+        // The loading spinner should be gone
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+
+        // ResultsScreen should be present
+        expect(find.byType(ResultsScreen), findsOneWidget);
+
+        // The trip duration (1h from PT1H) and cities should be visible
+        expect(find.textContaining('Stockholm'), findsWidgets);
+        expect(find.textContaining('Uppsala'), findsWidgets);
+        expect(find.text('1h'), findsOneWidget); // Assuming PT1H formats to 1h
+        expect(find.text('Recommended for your interests'), findsOneWidget);
+      },
+    );
+
+    testWidgets('Shows a friendly message when journey search fails', (
+      WidgetTester tester,
+    ) async {
+      useLargeViewport(tester);
       final fakeService = FakeResRobotService()..shouldThrowError = true;
       await tester.pumpWidget(createWidgetUnderTest(fakeService));
 
@@ -143,32 +218,122 @@ void main() {
       await tester.tap(find.text('Stockholm'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Destination'), 'upps');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Destination'),
+        'upps',
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Uppsala'));
       await tester.pumpAndSettle();
 
       // 2. Tap Search
-      await tester.tap(find.text('Search journeys'));
-      
+      tester.testTextInput.hide();
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Find journeys'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Find journeys'));
+
       // 3. Verify Error State
       await tester.pumpAndSettle(); // Fast forward past the search resolution
-      
-      expect(find.text('Fake API Error'), findsOneWidget);
+
+      expect(
+        find.textContaining('We couldn’t load journey information'),
+        findsOneWidget,
+      );
       // Results should not show any trip cards
       expect(find.text('1h'), findsNothing);
     });
-    
-    testWidgets('Search button is disabled if origin or destination is missing', (WidgetTester tester) async {
+
+    testWidgets('Shows a specific message when searching without internet', (
+      WidgetTester tester,
+    ) async {
+      useLargeViewport(tester);
+      final fakeService = FakeResRobotService()..shouldThrowOffline = true;
+      await tester.pumpWidget(createWidgetUnderTest(fakeService));
+
+      await tester.enterText(find.widgetWithText(TextField, 'Origin'), 'stock');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Stockholm'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Destination'),
+        'upps',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Uppsala'));
+      await tester.pumpAndSettle();
+      tester.testTextInput.hide();
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Find journeys'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Find journeys'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(NetworkUnavailableException.message), findsOneWidget);
+      expect(find.textContaining('ResRobot'), findsNothing);
+      expect(find.textContaining('API'), findsNothing);
+    });
+
+    testWidgets(
+      'search requires an origin and either a destination or interests',
+      (WidgetTester tester) async {
+        useLargeViewport(tester);
+        final fakeService = FakeResRobotService();
+        await tester.pumpWidget(createWidgetUnderTest(fakeService));
+
+        // Just tap search without filling autocomplete
+        await tester.scrollUntilVisible(
+          find.text('Find journeys'),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.text('Find journeys'));
+        await tester.pumpAndSettle();
+
+        // Should show validation error on screen
+        expect(
+          find.textContaining('either a destination or describe'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('interest-only search shows recommended journeys', (
+      tester,
+    ) async {
+      useLargeViewport(tester);
       final fakeService = FakeResRobotService();
       await tester.pumpWidget(createWidgetUnderTest(fakeService));
 
-      // Just tap search without filling autocomplete
-      await tester.tap(find.text('Search journeys'));
+      await tester.enterText(find.widgetWithText(TextField, 'Origin'), 'stock');
       await tester.pumpAndSettle();
-      
-      // Should show validation error on screen
-      expect(find.text('Select both origin and destination stations.'), findsOneWidget);
+      await tester.tap(find.text('Stockholm'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField).last,
+        'I want a quiet lakeside walk.',
+      );
+      tester.testTextInput.hide();
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Find journeys'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Find journeys'));
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+
+      expect(find.text('Routes to your destination'), findsNothing);
+      expect(find.text('Picked for you'), findsOneWidget);
+      expect(find.text('Recommended for your interests'), findsOneWidget);
+      expect(find.textContaining('Uppsala'), findsWidgets);
     });
   });
 }

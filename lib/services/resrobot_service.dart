@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/resrobot_models.dart';
+import 'network_unavailable_exception.dart';
 
 class ResRobotException implements Exception {
   const ResRobotException(this.message);
@@ -26,26 +27,31 @@ class ResRobotService {
     DateTime? date,
   }) async {
     final departure = date ?? DateTime.now();
-    final uri = Uri.parse('$_baseUrl/trip').replace(queryParameters: {
-      'accessId': apiKey,
-      'originId': originId,
-      'destId': destId,
-      'date': _date(departure),
-      'time': _time(departure),
-      'format': 'json',
-    });
+    final uri = Uri.parse('$_baseUrl/trip').replace(
+      queryParameters: {
+        'accessId': apiKey,
+        'originId': originId,
+        'destId': destId,
+        'date': _date(departure),
+        'time': _time(departure),
+        'format': 'json',
+      },
+    );
     return TripResponse.fromJson(_decode(await _get(uri)));
   }
 
   Future<List<Location>> stopLookup(String query) async {
     if (query.trim().isEmpty) return const [];
-    final uri = Uri.parse('$_baseUrl/location.name').replace(queryParameters: {
-      'accessId': apiKey,
-      'input': query.trim(),
-      'format': 'json',
-    });
+    final uri = Uri.parse('$_baseUrl/location.name').replace(
+      queryParameters: {
+        'accessId': apiKey,
+        'input': query.trim(),
+        'format': 'json',
+      },
+    );
     final json = _decode(await _get(uri));
-    final raw = json['stopLocationOrCoordLocation'] ??
+    final raw =
+        json['stopLocationOrCoordLocation'] ??
         json['StopLocation'] ??
         json['locations'] ??
         const [];
@@ -53,9 +59,11 @@ class ResRobotService {
     return values
         .whereType<Map>()
         .where((value) => value['StopLocation'] is Map)
-        .map((value) => Location.fromJson(
-              Map<String, dynamic>.from(value['StopLocation'] as Map),
-            ))
+        .map(
+          (value) => Location.fromJson(
+            Map<String, dynamic>.from(value['StopLocation'] as Map),
+          ),
+        )
         .toList();
   }
 
@@ -63,27 +71,45 @@ class ResRobotService {
     try {
       final response = await client.get(uri);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ResRobotException(
-          'ResRobot request failed (${response.statusCode}).',
-        );
+        throw ResRobotException(_requestError(response.statusCode));
       }
       return response.body;
     } on ResRobotException {
       rethrow;
     } on Exception catch (error) {
-      throw ResRobotException('Could not reach ResRobot: $error');
+      if (isNetworkUnavailable(error)) {
+        throw const NetworkUnavailableException();
+      }
+      throw const ResRobotException(
+        'We couldn’t load journey information right now. Please try again.',
+      );
     }
+  }
+
+  String _requestError(int statusCode) {
+    if (statusCode == 400 || statusCode == 404) {
+      return 'We couldn’t find a journey for those stations. Check your '
+          'selections and try again.';
+    }
+    if (statusCode == 429 || statusCode >= 500) {
+      return 'Journey search is temporarily unavailable. Please try again shortly.';
+    }
+    return 'We couldn’t load journey information. Please try again.';
   }
 
   Map<String, dynamic> _decode(String body) {
     try {
       final value = jsonDecode(body);
       if (value is! Map) {
-        throw const ResRobotException('ResRobot returned an unexpected response.');
+        throw const ResRobotException(
+          'We couldn’t read the journey information. Please try again.',
+        );
       }
       return Map<String, dynamic>.from(value);
     } on FormatException {
-      throw const ResRobotException('ResRobot returned invalid JSON.');
+      throw const ResRobotException(
+        'We couldn’t read the journey information. Please try again.',
+      );
     }
   }
 

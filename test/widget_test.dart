@@ -16,7 +16,7 @@ void main() {
     );
 
     expect(find.text('Find a journey'), findsOneWidget);
-    expect(find.text('Search journeys'), findsOneWidget);
-    expect(find.text('Your journey options will appear here.'), findsOneWidget);
+    expect(find.text('Find journeys'), findsOneWidget);
+    expect(find.text('Or describe the trip you have in mind'), findsOneWidget);
   });
 }
