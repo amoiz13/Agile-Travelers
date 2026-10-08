@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Fake service to isolate UI tests from network/JSON logic
 class FakeResRobotService implements ResRobotService {
@@ -101,7 +102,10 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
   }
 
-  Widget createWidgetUnderTest(ResRobotService fakeService) {
+  Widget createWidgetUnderTest(
+    ResRobotService fakeService, {
+    String expectedPromptText = 'quiet lakeside walk',
+  }) {
     return ProviderScope(
       overrides: [
         resRobotProvider.overrideWithValue(fakeService),
@@ -109,7 +113,7 @@ void main() {
           GeminiRecommendationService(
             apiKey: 'test-key',
             client: MockClient((request) async {
-              expect(request.body, contains('quiet lakeside walk'));
+              expect(request.body, contains(expectedPromptText));
               return http.Response(
                 jsonEncode({
                   'candidates': [
@@ -177,11 +181,8 @@ void main() {
         // 3. Tap Search
         tester.testTextInput.hide();
         await tester.pumpAndSettle();
-        await tester.scrollUntilVisible(
-          find.text('Find journeys'),
-          250,
-          scrollable: find.byType(Scrollable).first,
-        );
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Find journeys'));
 
         // 4. Verify Loading State
@@ -281,45 +282,50 @@ void main() {
       expect(find.textContaining('API'), findsNothing);
     });
 
-    testWidgets(
-      'search requires an origin and either a destination or interests',
-      (WidgetTester tester) async {
-        useLargeViewport(tester);
-        final fakeService = FakeResRobotService();
-        await tester.pumpWidget(createWidgetUnderTest(fakeService));
-
-        // Just tap search without filling autocomplete
-        await tester.scrollUntilVisible(
-          find.text('Find journeys'),
-          250,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.tap(find.text('Find journeys'));
-        await tester.pumpAndSettle();
-
-        // Should show validation error on screen
-        expect(
-          find.textContaining('either a destination or describe'),
-          findsOneWidget,
-        );
-      },
-    );
-
-    testWidgets('interest-only search shows recommended journeys', (
-      tester,
+    testWidgets('search requires an origin and a destination or interests', (
+      WidgetTester tester,
     ) async {
       useLargeViewport(tester);
       final fakeService = FakeResRobotService();
       await tester.pumpWidget(createWidgetUnderTest(fakeService));
 
+      // Just tap search without filling autocomplete
+      await tester.scrollUntilVisible(
+        find.text('Find journeys'),
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Find journeys'));
+      await tester.pumpAndSettle();
+
+      // Should show validation error on screen
+      expect(find.textContaining('Choose an origin'), findsOneWidget);
+    });
+
+    testWidgets('selected interests generate suggestions without typed text', (
+      tester,
+    ) async {
+      useLargeViewport(tester);
+      SharedPreferences.setMockInitialValues({});
+      final fakeService = FakeResRobotService();
+      await tester.pumpWidget(
+        createWidgetUnderTest(
+          fakeService,
+          expectedPromptText: 'Nature & scenery',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Set optional saved interests'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nature & scenery'));
+      await tester.tap(find.text('Save interests'));
+      await tester.pumpAndSettle();
+
       await tester.enterText(find.widgetWithText(TextField, 'Origin'), 'stock');
       await tester.pumpAndSettle();
       await tester.tap(find.text('Stockholm'));
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byType(TextField).last,
-        'I want a quiet lakeside walk.',
-      );
       tester.testTextInput.hide();
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
@@ -334,6 +340,47 @@ void main() {
       expect(find.text('Picked for you'), findsOneWidget);
       expect(find.text('Recommended for your interests'), findsOneWidget);
       expect(find.textContaining('Uppsala'), findsWidgets);
+    });
+
+    testWidgets('origin and destination text persist after scrolling', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(900, 500);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final fakeService = FakeResRobotService();
+      await tester.pumpWidget(createWidgetUnderTest(fakeService));
+
+      await tester.enterText(find.widgetWithText(TextField, 'Origin'), 'stock');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Stockholm'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Destination'),
+        'upps',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Uppsala'));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(TextField, 'Origin'), findsNothing);
+      expect(find.widgetWithText(TextField, 'Destination'), findsNothing);
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 600));
+      await tester.pumpAndSettle();
+
+      final originField = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Origin'),
+      );
+      final destinationField = tester.widget<TextField>(
+        find.widgetWithText(TextField, 'Destination'),
+      );
+      expect(originField.controller!.text, 'Stockholm');
+      expect(destinationField.controller!.text, 'Uppsala');
     });
   });
 }
