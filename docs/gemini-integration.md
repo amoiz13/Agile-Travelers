@@ -7,13 +7,15 @@ known failure modes, and safe development practices.
 ## What it does
 
 The planner accepts a free-text description such as “a quiet coastal walk with
-good seafood.” Gemini interprets that description and can return up to three
-Swedish destination names with a short explanation for each.
+good seafood,” saved travel interests, or both. Gemini interprets that context
+and can return up to three Swedish destination names with a short explanation
+for each. A typed description is optional when the user has saved interests.
 
 The app does **not** trust Gemini to produce a public-transport route:
 
-1. The user selects an origin station and enters a travel description.
-2. The Flutter app sends the description and origin name to Gemini.
+1. The user selects an origin station and provides a destination, travel
+   description, saved interests, or a combination.
+2. The Flutter app sends any travel description and saved interests to Gemini.
 3. Gemini returns a relevance decision plus destination names and reasons.
 4. Agile Travellers looks each destination up as a station using ResRobot.
 5. The app asks ResRobot for journeys to the matched station.
@@ -33,8 +35,8 @@ The integration lives in:
 - `lib/services/destination_discovery_service.dart` — station lookup and
   journey validation using ResRobot.
 - `lib/models/travel_preferences.dart` — typed recommendation result models.
-- `lib/main.dart` — combines direct-destination search and optional
-  recommendations in the planner.
+- `lib/main.dart` — combines direct-destination search and recommendations
+  based on typed descriptions and/or saved interests in the planner.
 - `lib/screens/recommendations_screen.dart` — displays the tagged results.
 
 The app uses Google's Gemini `generateContent` REST endpoint and requests JSON

@@ -115,6 +115,10 @@ class PlannerPage extends ConsumerStatefulWidget {
 }
 
 class _PlannerPageState extends ConsumerState<PlannerPage> {
+  final _originController = TextEditingController();
+  final _destinationController = TextEditingController();
+  final _originFocusNode = FocusNode();
+  final _destinationFocusNode = FocusNode();
   final _preferenceController = TextEditingController();
   String? _destinationId;
   Location? _origin;
@@ -122,7 +126,7 @@ class _PlannerPageState extends ConsumerState<PlannerPage> {
   List<RecommendedJourney> _recommendedJourneys = const [];
   String? _recommendationMessage;
   List<String> _interests = const [];
-  String _searchedPreference = '';
+  bool _searchedWithPreferences = false;
   bool _hasSearched = false;
   bool _loading = false;
   bool _loadingPreferences = true;
@@ -136,6 +140,10 @@ class _PlannerPageState extends ConsumerState<PlannerPage> {
 
   @override
   void dispose() {
+    _originController.dispose();
+    _destinationController.dispose();
+    _originFocusNode.dispose();
+    _destinationFocusNode.dispose();
     _preferenceController.dispose();
     super.dispose();
   }
@@ -173,20 +181,20 @@ class _PlannerPageState extends ConsumerState<PlannerPage> {
     final origin = _origin;
     final preferenceText = _preferenceController.text.trim();
     final hasDestination = _destinationId != null;
-    if (origin == null || (!hasDestination && preferenceText.isEmpty)) {
+    final preferencePrompt = [
+      if (preferenceText.isNotEmpty) preferenceText,
+      if (_interests.isNotEmpty)
+        'My saved interests are: ${_interests.join(', ')}.',
+    ].join('\n');
+    final hasPreferences = preferencePrompt.isNotEmpty;
+    if (origin == null || (!hasDestination && !hasPreferences)) {
       setState(
         () => _error =
-            'Choose an origin and either a destination or describe what you '
-            'would like to explore.',
+            'Choose an origin and a destination, describe what you would '
+            'like to explore, or add saved interests.',
       );
       return;
     }
-
-    final preferencePrompt = [
-      if (preferenceText.isNotEmpty) preferenceText,
-      if (preferenceText.isNotEmpty && _interests.isNotEmpty)
-        'My saved interests are: ${_interests.join(', ')}.',
-    ].join('\n');
 
     setState(() {
       _loading = true;
@@ -194,7 +202,7 @@ class _PlannerPageState extends ConsumerState<PlannerPage> {
       _trips = const [];
       _recommendedJourneys = const [];
       _recommendationMessage = null;
-      _searchedPreference = preferenceText;
+      _searchedWithPreferences = hasPreferences;
       _hasSearched = false;
     });
 
@@ -217,7 +225,7 @@ class _PlannerPageState extends ConsumerState<PlannerPage> {
       }
     }
 
-    if (!offline && preferenceText.isNotEmpty) {
+    if (!offline && hasPreferences) {
       try {
         final discovery = await ref
             .read(destinationDiscoveryProvider)
@@ -245,171 +253,226 @@ class _PlannerPageState extends ConsumerState<PlannerPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Agile Travelers'),
-      actions: [
-        IconButton(
-          tooltip: 'Travel interests',
-          onPressed: _loadingPreferences ? null : _editInterests,
-          icon: const Icon(Icons.tune),
-        ),
-      ],
-    ),
-    body: Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 900),
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: [
-            Text(
-              'Find a journey',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            const Text('Search trains, buses, and walking legs across Sweden.'),
-            const SizedBox(height: 24),
-            _StationAutocomplete(
-              label: 'Origin',
-              service: ref.read(resRobotProvider),
-              onSelected: (location) => setState(() {
-                _origin = location;
-              }),
-              onChanged: () => setState(() {
-                _origin = null;
-              }),
-            ),
-            const SizedBox(height: 12),
-            _StationAutocomplete(
-              label: 'Destination',
-              service: ref.read(resRobotProvider),
-              onSelected: (location) =>
-                  setState(() => _destinationId = location.extId),
-              onChanged: () => setState(() => _destinationId = null),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Or describe the trip you have in mind',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Write naturally—anything from “a quiet beach and '
-                      'seafood” to “a weekend of castles and history.”',
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _preferenceController,
-                      minLines: 2,
-                      maxLines: 4,
-                      maxLength: 500,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(
-                        hintText: 'What would you like to see or do?',
-                        border: OutlineInputBorder(),
-                        alignLabelWithHint: true,
-                        prefixIcon: Icon(Icons.auto_awesome),
+  Widget build(BuildContext context) {
+    final resRobot = ref.read(resRobotProvider);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Agile Travelers'),
+        actions: [
+          IconButton(
+            tooltip: 'Travel interests',
+            onPressed: _loadingPreferences ? null : _editInterests,
+            icon: const Icon(Icons.tune),
+          ),
+        ],
+      ),
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                  child: Column(
+                    children: [
+                      _StationAutocomplete(
+                        label: 'Origin',
+                        service: resRobot,
+                        controller: _originController,
+                        focusNode: _originFocusNode,
+                        onSelected: (location) => setState(() {
+                          _origin = location;
+                        }),
+                        onChanged: () => setState(() {
+                          _origin = null;
+                        }),
                       ),
-                    ),
-                    if (_interests.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          'Saved interests are added as extra context.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
+                      const SizedBox(height: 12),
+                      _StationAutocomplete(
+                        label: 'Destination',
+                        service: resRobot,
+                        controller: _destinationController,
+                        focusNode: _destinationFocusNode,
+                        onSelected: (location) =>
+                            setState(() => _destinationId = location.extId),
+                        onChanged: () => setState(() => _destinationId = null),
                       ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: _loadingPreferences ? null : _editInterests,
-                        icon: const Icon(Icons.tune),
-                        label: Text(
-                          _interests.isEmpty
-                              ? 'Set optional saved interests'
-                              : 'Edit saved interests',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _loading ? null : _search,
-              icon: _loading
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.search),
-              label: Text(_loading ? 'Finding journeys...' : 'Find journeys'),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-            const SizedBox(height: 24),
-            if (_hasSearched && _destinationId != null) ...[
-              Text(
-                'Routes to your destination',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              if (_trips.isNotEmpty)
-                ResultsScreen(trips: _trips)
-              else if (_error == null)
-                const Text('No routes were found for that destination.'),
-            ],
-            if (_hasSearched && _searchedPreference.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              RecommendedJourneysSection(journeys: _recommendedJourneys),
-              if (_recommendationMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    _recommendationMessage!,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    ],
                   ),
                 ),
-            ],
-            if (!_hasSearched && !_loading)
-              Text(
-                'Choose a destination, describe your interests, or do both.',
-                style: Theme.of(context).textTheme.bodySmall,
               ),
-          ],
-        ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Find a journey',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Search trains, buses, and walking legs across Sweden.',
+                      ),
+                      const SizedBox(height: 24),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Or describe the trip you have in mind',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Write naturally—anything from “a quiet beach '
+                                'and seafood” to “a weekend of castles and '
+                                'history.”',
+                              ),
+                              const SizedBox(height: 10),
+                              TextField(
+                                controller: _preferenceController,
+                                minLines: 2,
+                                maxLines: 4,
+                                maxLength: 500,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                decoration: const InputDecoration(
+                                  hintText: 'What would you like to see or do?',
+                                  border: OutlineInputBorder(),
+                                  alignLabelWithHint: true,
+                                  prefixIcon: Icon(Icons.auto_awesome),
+                                ),
+                              ),
+                              if (_interests.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Text(
+                                    'Saved interests can generate suggestions '
+                                    'without a written description.',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
+                                  ),
+                                ),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton.icon(
+                                  onPressed: _loadingPreferences
+                                      ? null
+                                      : _editInterests,
+                                  icon: const Icon(Icons.tune),
+                                  label: Text(
+                                    _interests.isEmpty
+                                        ? 'Set optional saved interests'
+                                        : 'Edit saved interests',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: _loading ? null : _search,
+                        icon: _loading
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.search),
+                        label: Text(
+                          _loading ? 'Finding journeys...' : 'Find journeys',
+                        ),
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      if (_hasSearched && _destinationId != null) ...[
+                        Text(
+                          'Routes to your destination',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        if (_trips.isNotEmpty)
+                          ResultsScreen(trips: _trips)
+                        else if (_error == null)
+                          const Text(
+                            'No routes were found for that destination.',
+                          ),
+                      ],
+                      if (_hasSearched && _searchedWithPreferences) ...[
+                        const SizedBox(height: 16),
+                        RecommendedJourneysSection(
+                          journeys: _recommendedJourneys,
+                        ),
+                        if (_recommendationMessage != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              _recommendationMessage!,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                      ],
+                      if (!_hasSearched && !_loading)
+                        Text(
+                          'Choose a destination, describe your interests, or '
+                          'use your saved interests.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _StationAutocomplete extends StatelessWidget {
   const _StationAutocomplete({
     required this.label,
     required this.service,
+    required this.controller,
+    required this.focusNode,
     required this.onSelected,
     required this.onChanged,
   });
 
   final String label;
   final ResRobotService service;
+  final TextEditingController controller;
+  final FocusNode focusNode;
   final ValueChanged<Location> onSelected;
   final VoidCallback onChanged;
 
   @override
-  Widget build(BuildContext context) => Autocomplete<Location>(
+  Widget build(BuildContext context) => RawAutocomplete<Location>(
+    textEditingController: controller,
+    focusNode: focusNode,
     displayStringForOption: (location) => location.name,
     optionsBuilder: (value) async {
       if (value.text.trim().length < 2) return const <Location>[];
