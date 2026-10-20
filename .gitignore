@@ -48,3 +48,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Gateway
+/gateway/node_modules/
+/gateway/dist/

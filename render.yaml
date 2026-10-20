@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: agile-travellers-gateway
+    runtime: node
+    rootDir: gateway
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: TRUST_PROXY
+        value: 1
+      # Entered in the Render dashboard; never stored in this file.
+      - key: RESROBOT_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

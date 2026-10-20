@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:agile_travelers/main.dart';
 import 'package:agile_travelers/models/resrobot_models.dart';
 import 'package:agile_travelers/screens/results_screen.dart';
-import 'package:agile_travelers/services/gemini_recommendation_service.dart';
+import 'package:agile_travelers/services/destination_discovery_service.dart';
+import 'package:agile_travelers/services/gateway_client.dart';
 import 'package:agile_travelers/services/network_unavailable_exception.dart';
 import 'package:agile_travelers/services/resrobot_service.dart';
 import 'package:flutter/material.dart';
@@ -88,10 +89,7 @@ class FakeResRobotService implements ResRobotService {
 
   // Not used but needed to fulfill implements contract
   @override
-  String get apiKey => '';
-
-  @override
-  http.Client get client => throw UnimplementedError();
+  GatewayClient get gateway => throw UnimplementedError();
 }
 
 void main() {
@@ -109,37 +107,40 @@ void main() {
     return ProviderScope(
       overrides: [
         resRobotProvider.overrideWithValue(fakeService),
-        geminiRecommendationProvider.overrideWithValue(
-          GeminiRecommendationService(
-            apiKey: 'test-key',
-            client: MockClient((request) async {
-              expect(request.body, contains(expectedPromptText));
-              return http.Response(
-                jsonEncode({
-                  'candidates': [
-                    {
-                      'content': {
-                        'parts': [
-                          {
-                            'text': jsonEncode({
-                              'relevant': true,
-                              'message': '',
-                              'destinations': [
-                                {
-                                  'destination': 'Uppsala',
-                                  'reason': 'A peaceful lakeside walk.',
-                                },
-                              ],
-                            }),
+        destinationDiscoveryProvider.overrideWithValue(
+          DestinationDiscoveryService(
+            gateway: GatewayClient(
+              baseUrl: 'http://gateway.test',
+              client: MockClient((request) async {
+                expect(request.url.path, '/suggestions');
+                expect(request.body, contains(expectedPromptText));
+                return http.Response(
+                  jsonEncode({
+                    'data': {
+                      'relevant': true,
+                      'message': '',
+                      'journeys': [
+                        {
+                          'destination': 'Uppsala',
+                          'reason': 'A peaceful lakeside walk.',
+                          'stationName': 'Uppsala Centralstation',
+                          'trip': {
+                            'duration': 'PT1H',
+                            'transferCount': 0,
+                            'Origin': {'name': 'Stockholm'},
+                            'Destination': {'name': 'Uppsala'},
+                            'LegList': {'Leg': []},
                           },
-                        ],
-                      },
+                        },
+                      ],
                     },
-                  ],
-                }),
-                200,
-              );
-            }),
+                    'error': null,
+                    'cached': false,
+                  }),
+                  200,
+                );
+              }),
+            ),
           ),
         ),
       ],

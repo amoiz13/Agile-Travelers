@@ -10,7 +10,7 @@ transport journeys with the Trafiklab ResRobot API.
 - Journey leg details for trains, buses, and walking
 - CO2 estimates per leg and per journey
 - Sorting by departure time, journey duration, transfers, or CO2
-- Free-text destination and interest search using Gemini and ResRobot route validation
+- Free-text destination and interest search using Gemini and ResRobot route validation, served through a small API gateway
 - On-device travel-interest and seat-comfort preferences
 - Android splash screen and Agile Travellers branding
 
@@ -30,34 +30,50 @@ guidance, see [the Gemini integration guide](./docs/gemini-integration.md).
 
 ## Setup
 
-1. Install Flutter and Android Studio.
-2. Copy `.env.example` to `.env`.
-3. Add a Trafiklab ResRobot API key:
+1. Install Flutter, Android Studio and Node.js 20.12 or newer.
+2. Start the gateway, which holds the API keys (the app contains none):
+
+   ```powershell
+   cd gateway
+   npm install
+   copy .env.example .env
+   ```
+
+   Edit `gateway/.env` and add a Trafiklab ResRobot key and, for
+   interest-based discovery, a Gemini key:
 
    ```env
    RESROBOT_API_KEY=your_key_here
    GEMINI_API_KEY=your_gemini_key_here
    ```
 
-   `GEMINI_API_KEY` is only needed for interest-based destination discovery.
+   ```powershell
+   npm run dev     # listens on http://localhost:8787
+   ```
 
-4. Run:
+3. In another terminal, run the app against the gateway. On the Android
+   emulator your computer is reachable at `10.0.2.2`:
 
    ```powershell
    flutter pub get
-   flutter run
+   flutter run --dart-define=GATEWAY_URL=http://10.0.2.2:8787
    ```
 
-The `.env` file is ignored by Git and must never be committed.
-Both keys are loaded directly by the app. They can be extracted from a
-distributed APK, so this direct-client setup is suitable only for a prototype;
-do not distribute a production APK with unrestricted keys.
+`gateway/.env` is ignored by Git and must never be committed. The app makes no
+direct calls to ResRobot or Gemini and ships without keys; the gateway applies
+validation, caching, timeouts and rate limiting. Environment variables, tests
+and deployment notes are in
+[the Gemini integration guide](./docs/gemini-integration.md).
 
 ## Build the Android prototype
 
 ```powershell
-flutter build apk --release --build-name 0.1.0 --build-number 1
+flutter build apk --release --build-name 0.1.0 --build-number 1 `
+  --dart-define=GATEWAY_URL=https://your-gateway.example.com
 ```
+
+Release builds need an `https://` gateway URL. Without `GATEWAY_URL`, the APK
+installs but searches report that the feature is unavailable.
 
 The generated APK is written to
 `build/app/outputs/flutter-apk/app-release.apk`.
