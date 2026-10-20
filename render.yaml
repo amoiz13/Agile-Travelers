@@ -2,6 +2,7 @@ services:
   - type: web
     name: agile-travellers-gateway
     runtime: node
+    plan: free
     rootDir: gateway
     buildCommand: npm ci && npm run build
     startCommand: npm start
