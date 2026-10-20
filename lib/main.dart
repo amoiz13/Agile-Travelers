@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import 'models/resrobot_models.dart';
 import 'models/travel_preferences.dart';
 import 'services/destination_discovery_service.dart';
-import 'services/gemini_recommendation_service.dart';
+import 'services/gateway_client.dart';
 import 'services/local_preferences_store.dart';
 import 'services/network_unavailable_exception.dart';
 import 'services/resrobot_service.dart';
@@ -18,34 +17,20 @@ final localPreferencesStoreProvider = Provider<LocalPreferencesStore>(
   (ref) => const LocalPreferencesStore(),
 );
 
-final resRobotProvider = Provider<ResRobotService>((ref) {
-  return ResRobotService(
-    apiKey: dotenv.env['RESROBOT_API_KEY'] ?? '',
-    client: http.Client(),
-  );
-});
+final gatewayClientProvider = Provider<GatewayClient>(
+  (ref) => GatewayClient(baseUrl: gatewayUrl, client: http.Client()),
+);
 
-final geminiRecommendationProvider = Provider<GeminiRecommendationService>((
-  ref,
-) {
-  return GeminiRecommendationService(
-    apiKey: dotenv.env['GEMINI_API_KEY'] ?? '',
-    client: http.Client(),
-  );
-});
+final resRobotProvider = Provider<ResRobotService>(
+  (ref) => ResRobotService(gateway: ref.watch(gatewayClientProvider)),
+);
 
-final destinationDiscoveryProvider = Provider<DestinationDiscoveryService>((
-  ref,
-) {
-  return DestinationDiscoveryService(
-    gemini: ref.watch(geminiRecommendationProvider),
-    resRobot: ref.watch(resRobotProvider),
-  );
-});
+final destinationDiscoveryProvider = Provider<DestinationDiscoveryService>(
+  (ref) =>
+      DestinationDiscoveryService(gateway: ref.watch(gatewayClientProvider)),
+);
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env', mergeWith: const {});
+void main() {
   runApp(const ProviderScope(child: TransitPlannerApp()));
 }
 
@@ -234,9 +219,7 @@ class _PlannerPageState extends ConsumerState<PlannerPage> {
         _recommendationMessage = discovery.message;
       } on NetworkUnavailableException {
         errors.add(NetworkUnavailableException.message);
-      } on GeminiRecommendationException catch (error) {
-        errors.add(error.message);
-      } on ResRobotException catch (error) {
+      } on DiscoveryException catch (error) {
         errors.add(error.message);
       }
     }
